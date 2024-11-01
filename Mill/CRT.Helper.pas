@@ -1,94 +1,91 @@
 Unit CRT.Helper;
-{$Mode FPC}
+
+{$Mode OBJFPC}
 
 Interface
-Uses CRT,Windows;
-Function GetScreenHeight : DWord;
-Function GetScreenWidth : DWord;
-function GetScreenWindowHeight : DWord;
-function GetScreenWindowWidth : DWord;
-Procedure CrtCodePage (CCP:integer);
+
+Uses
+  CRT,
+  Windows,
+  SysUtils;
+
+Const
+  UseSystemCodePage = 0;
+  DisableAnsiCodePage = -1;
+
+Var
+  ConsoleInfo: TConsoleScreenBufferInfo;
+
+Function GetScreenHeight: DWord;
+Function GetScreenWidth: DWord;
+Function GetScreenWindowHeight: DWord;
+Function GetScreenWindowWidth: DWord;
+Procedure CrtCodePage(CCP: Integer);
 
 Implementation
 
-Function GetScreenHeight : DWord;
-var
-  ConsoleInfo: TConsoleScreenBufferinfo;
+Function GetConsoleInfo(Const ErrorMsg: String): Boolean;
 Begin
-  If (not GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleInfo)) then Begin
-{$ifdef SYSTEMDEBUG}
-    Writeln(stderr,'GetScreenHeight failed GetLastError returns ',GetLastError);
-    Halt(1);
-{$endif SYSTEMDEBUG}
-    // ts: this is really silly assumption; imho better: issue a halt
-    GetScreenHeight:=25;
-  End Else
-    GetScreenHeight := ConsoleInfo.dwSize.Y;
-End; { func. GetScreenHeight }
+  If GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleInfo) Then
+    Begin
+      Result := True;
+    End
+  Else
+    Begin
+      Writeln(stderr, ErrorMsg, ' failed. GetLastError: ', GetLastError);
+      Try
+        RaiseLastOSError;
+      Except
+        On E: Exception Do
+          Writeln(stderr, E.Message);
+    End;
+      Result := False;
+    End;
+End;
 
-Function GetScreenWidth : DWord;
-var
-  ConsoleInfo: TConsoleScreenBufferInfo;
+Function GetScreenHeight: DWord;
 Begin
-  If (not GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleInfo)) then Begin
-{$ifdef SYSTEMDEBUG}
-    Writeln(stderr,'GetScreenWidth failed GetLastError returns ',GetLastError);
-    Halt(1);
-{$endif SYSTEMDEBUG}
-    // ts: this is really silly assumption; imho better: issue a halt
-    GetScreenWidth:=80;
-  End Else
-    GetScreenWidth := ConsoleInfo.dwSize.X;
-End; { func. GetScreenWidth }
+  If GetConsoleInfo('GetScreenHeight') Then
+    Result := ConsoleInfo.dwSize.Y
+  Else
+    Result := 0;
+End;
 
-Function GetScreenWindowHeight : DWord;
-var
-  ConsoleInfo: TConsoleScreenBufferinfo;
+Function GetScreenWidth: DWord;
 Begin
-  If (not GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleInfo)) then Begin
-{$ifdef SYSTEMDEBUG}
-    Writeln(stderr,'GetScreenWindowHeight failed GetLastError returns ',GetLastError);
-    Halt(1);
-{$endif SYSTEMDEBUG}
-    // ts: this is really silly assumption; imho better: issue a halt
-    GetScreenWindowHeight:=25;
-  End Else
-    GetScreenWindowHeight := ConsoleInfo.srWindow.Bottom-ConsoleInfo.srWindow.Top+1;
-End; { func. GetScreenWindowHeight }
+  If GetConsoleInfo('GetScreenWidth') Then
+    Result := ConsoleInfo.dwSize.X
+  Else
+    Result := 0;
+End;
 
-Function GetScreenWindowWidth : DWord;
-var
-  ConsoleInfo: TConsoleScreenBufferInfo;
+Function GetScreenWindowHeight: DWord;
 Begin
-  If (not GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), ConsoleInfo)) then Begin
-{$ifdef SYSTEMDEBUG}
-    Writeln(stderr,'GetScreenWindowWidth failed GetLastError returns ',GetLastError);
-    Halt(1);
-{$endif SYSTEMDEBUG}
-    // ts: this is really silly assumption; imho better: issue a halt
-    GetScreenWindowWidth:=80;
-  End Else
-    GetScreenWindowWidth := ConsoleInfo.srWindow.Right-ConsoleInfo.srWindow.Left+1;
-End; { func. GetScreenWindowWidth }
+  If GetConsoleInfo('GetScreenWindowHeight') Then
+    Result := ConsoleInfo.srWindow.Bottom - ConsoleInfo.srWindow.Top + 1
+  Else
+    Result := 0;
+End;
 
-Procedure CrtCodePage (CCP:integer);
+Function GetScreenWindowWidth: DWord;
 Begin
-  If CCP = 0 then
-      Begin
-         SetUseACP(False);
-         SetConsoleOutputCP(GetACP);
-      End
-  ELSE
-    If CCP = -1 Then
-      SetUseACP(False)
-    ELSE
-      Begin
-         SetUseACP(False);
-         SetConsoleOutputCP(CCP);
-      End;
+  If GetConsoleInfo('GetScreenWindowWidth') Then
+    Result := ConsoleInfo.srWindow.Right - ConsoleInfo.srWindow.Left + 1
+  Else
+    Result := 0;
+End;
+
+Procedure CrtCodePage(CCP: Integer);
+Begin
+  SetUseACP(False);
+  Case CCP Of
+    UseSystemCodePage: SetConsoleOutputCP(GetACP);
+    DisableAnsiCodePage: ;
+    Else SetConsoleOutputCP(CCP);
+  End;
 End;
 
 Begin
-   CrtCodePage(-1);
-   SetSafeCPSwitching(False);
+  CrtCodePage(DisableAnsiCodePage);
+  SetSafeCPSwitching(False);
 End.
